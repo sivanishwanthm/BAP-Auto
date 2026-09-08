@@ -1,1 +1,172 @@
+name: Qwen3-4B vLLM TPU Benchmark
 
+description: Run Qwen3-4B on an existing v6e-1 TPU VM
+
+runs:
+  using: composite
+
+  steps:
+
+    - name: Authenticate to Google Cloud
+      shell: bash
+      run: |
+        echo '${{ env.GCP_SERVICE_ACCOUNT_KEY }}' > /tmp/gcp-key.json
+
+        gcloud auth activate-service-account \
+          --key-file=/tmp/gcp-key.json
+
+        gcloud config set project "${GCP_PROJECT}"
+
+
+    - name: Verify TPU VM
+      shell: bash
+      run: |
+        gcloud compute tpus tpu-vm describe "${TPU_NAME}" \
+          --project="${GCP_PROJECT}" \
+          --zone="${TPU_ZONE}"
+
+
+    - name: Pull vLLM TPU image
+      shell: bash
+      run: |
+        gcloud compute tpus tpu-vm ssh "${TPU_NAME}" \
+          --project="${GCP_PROJECT}" \
+          --zone="${TPU_ZONE}" \
+          --command="
+            sudo docker pull vllm/vllm-tpu:latest
+          "
+
+
+    - name: Remove previous Qwen container
+      shell: bash
+      run: |
+        gcloud compute tpus tpu-vm ssh "${TPU_NAME}" \
+          --project="${GCP_PROJECT}" \
+          --zone="${TPU_ZONE}" \
+          --command="
+            sudo docker rm -f qwen3-vllm || true
+          "
+
+
+    - name: Start Qwen3-4B vLLM server
+      shell: bash
+      run: |
+        gcloud compute tpus tpu-vm ssh "${TPU_NAME}" \
+          --project="${GCP_PROJECT}" \
+          --zone="${TPU_ZONE}" \
+          --command="
+            sudo docker run -d \
+              --name qwen3-vllm \
+              --privileged \
+              --net=host \
+              -v /dev/shm:/dev/shm \
+              --shm-size=20gb \
+              -e HF_HOME=/dev/shm \
+              -e HF_TOKEN='${HF_TOKEN}' \
+              vllm/vllm-tpu:latest \
+              vllm serve Qwen/Qwen3-4B \
+                --seed 42 \
+                --disable-log-requests \
+                --gpu-memory-utilization 0.98 \
+                --max-num-batched-tokens 1024 \
+                --max-num-seqs 128 \
+                --tensor-parallel-size 1 \
+                --max-model-len 4096
+          "
+
+
+    - name: Wait for vLLM server
+      shell: bash
+      run: |
+        for i in {1..60}; do
+
+          if gcloud compute tpus tpu-vm ssh "${TPU_NAME}" \
+            --project="${GCP_PROJECT}" \
+            --zone="${TPU_ZONE}" \
+            --command="
+              curl -sf http://localhost:8000/v1/models
+            "
+          then
+            echo "Qwen3 server is ready"
+            exit 0
+          fi
+
+          echo "Waiting for vLLM..."
+          sleep 20
+        done
+
+        echo "Server failed to start"
+
+        gcloud compute tpus tpu-vm ssh "${TPU_NAME}" \
+          --project="${GCP_PROJECT}" \
+          --zone="${TPU_ZONE}" \
+          --command="
+            sudo docker logs qwen3-vllm
+          "
+
+        exit 1
+
+
+    - name: Test Qwen3 inference
+      shell: bash
+      run: |
+        gcloud compute tpus tpu-vm ssh "${TPU_NAME}" \
+          --project="${GCP_PROJECT}" \
+          --zone="${TPU_ZONE}" \
+          --command="
+            curl http://localhost:8000/v1/completions \
+              -H 'Content-Type: application/json' \
+              -d '{
+                \"model\": \"Qwen/Qwen3-4B\",
+                \"prompt\": \"I love the mornings, because \",
+                \"max_tokens\": 100,
+                \"temperature\": 0
+              }'
+          "
+
+
+    - name: Install benchmark dependency
+      shell: bash
+      run: |
+        gcloud compute tpus tpu-vm ssh "${TPU_NAME}" \
+          --project="${GCP_PROJECT}" \
+          --zone="${TPU_ZONE}" \
+          --command="
+            sudo docker exec qwen3-vllm \
+              pip install datasets
+          "
+
+
+    - name: Run serving benchmark
+      shell: bash
+      run: |
+        gcloud compute tpus tpu-vm ssh "${TPU_NAME}" \
+          --project="${GCP_PROJECT}" \
+          --zone="${TPU_ZONE}" \
+          --command="
+            sudo docker exec qwen3-vllm \
+              bash -lc '
+                cd /workspace/vllm
+
+                vllm bench serve \
+                  --backend vllm \
+                  --model Qwen/Qwen3-4B \
+                  --dataset-name random \
+                  --num-prompts 1000 \
+                  --random-input-len=1800 \
+                  --random-output-len=128 \
+                  --seed 100
+              '
+          "
+
+
+    - name: Show vLLM logs
+      if: always()
+      shell: bash
+      run: |
+        gcloud compute tpus tpu-vm ssh "${TPU_NAME}" \
+          --project="${GCP_PROJECT}" \
+          --zone="${TPU_ZONE}" \
+          --command="
+            sudo docker logs --tail=200 qwen3-vllm
+          " || true
