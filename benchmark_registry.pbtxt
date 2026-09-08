@@ -1,1 +1,26 @@
+benchmarks {
+  name: "qwen3_4b_v6e1"
 
+  description: "Qwen3-4B vLLM serving benchmark on existing v6e-1"
+
+  owner: "tpu-recipe-automation"
+
+  workload {
+    action: "./user_repo/.github/actions/qwen3"
+  }
+
+  environment_configs {
+    id: "qwen3_v6e1"
+
+    runner_label: "linux-x86-n2-16"
+
+    container_image: "google/cloud-sdk:latest"
+
+    tags: "tpu"
+    tags: "v6e"
+    tags: "qwen3"
+  }
+
+  tags: "inference"
+  tags: "vllm"
+}
