@@ -35,3 +35,9 @@ jobs:
           gcloud compute tpus tpu-vm describe "${{ vars.TPU_NAME }}" \
             --project="${{ vars.GCP_PROJECT }}" \
             --zone="${{ vars.TPU_ZONE }}"
+      - name: Test TPU SSH
+        run: |
+          gcloud compute tpus tpu-vm ssh "${{ vars.TPU_NAME }}" \
+            --project="${{ vars.GCP_PROJECT }}" \
+            --zone="${{ vars.TPU_ZONE }}" \
+            --command="hostname && sudo docker --version"
