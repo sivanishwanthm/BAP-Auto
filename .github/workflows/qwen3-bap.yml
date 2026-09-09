@@ -5,16 +5,13 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  id-token: write
 
 jobs:
-
   run_benchmark:
-
     uses: google-ml-infra/bap/.github/workflows/run_benchmarks.yml@main
 
     with:
-
       registry_file: "./benchmark_registry.pbtxt"
 
       benchmark_filter: "qwen3_4b_v6e1"
@@ -31,5 +28,8 @@ jobs:
         GCP_PROJECT=${{ vars.GCP_PROJECT }}
         TPU_ZONE=${{ vars.TPU_ZONE }}
         TPU_NAME=${{ vars.TPU_NAME }}
-        HF_TOKEN=${{ secrets.HF_TOKEN }}
-        GCP_SERVICE_ACCOUNT_KEY=${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+        GCP_WORKLOAD_IDENTITY_PROVIDER=${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        GCP_SERVICE_ACCOUNT=${{ vars.GCP_SERVICE_ACCOUNT }}
+
+    secrets:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
