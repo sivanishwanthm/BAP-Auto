@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   run_benchmark:
-    uses: google-ml-infra/bap/.github/workflows/run-benchmarks.yml@main
+    uses: google-ml-infra/bap/.github/workflows/run-benchmarks.yaml@main
 
     with:
       registry_file: "./benchmark_registry.pbtxt"
