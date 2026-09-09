@@ -13,15 +13,10 @@ jobs:
 
     with:
       registry_file: "./benchmark_registry.pbtxt"
-
       benchmark_filter: "qwen3_4b_v6e1"
-
       environment_filter: "qwen3_v6e1"
-
       bap_ref: "main"
-
       publish_metrics: false
-
       post_pr_comment: false
 
       custom_env_vars: |
@@ -31,5 +26,4 @@ jobs:
         GCP_WORKLOAD_IDENTITY_PROVIDER=${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
         GCP_SERVICE_ACCOUNT=${{ vars.GCP_SERVICE_ACCOUNT }}
 
-    secrets:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    secrets: inherit
