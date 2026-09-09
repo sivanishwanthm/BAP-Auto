@@ -1,0 +1,37 @@
+name: Test GCP Authentication
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Check authentication
+        run: |
+          gcloud auth list
+          gcloud config get-value project
+
+      - name: Describe existing TPU
+        run: |
+          gcloud compute tpus tpu-vm describe "${{ vars.TPU_NAME }}" \
+            --project="${{ vars.GCP_PROJECT }}" \
+            --zone="${{ vars.TPU_ZONE }}"
