@@ -12,7 +12,7 @@ benchmarks {
   environment_configs {
     id: "qwen3_v6e1"
 
-    runner_label: "linux-x86-n2-16"
+    runner_label: "ubuntu-latest"
 
     container_image: "google/cloud-sdk:latest"
 
